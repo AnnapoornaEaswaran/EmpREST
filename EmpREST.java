@@ -1,21 +1,17 @@
 package employeerest;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
-
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.http.HttpServer;
+import io.vertx.core.http.HttpServerRequest;
+import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
+import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
-import io.vertx.rxjava.ext.web.RoutingContext;
-import io.vertx.core.http.HttpServerResponse;
-import io.vertx.core.http.HttpServerRequest;
 public class EmpREST extends AbstractVerticle {
 	HttpServer httpServer;
 	JsonObject emp,temp;
@@ -27,68 +23,9 @@ public class EmpREST extends AbstractVerticle {
 		Router router = Router.router(vertx);
 
 		    router.route().handler(BodyHandler.create());
-		    router.get("/allemployees").handler(ctx->  {
-		    	
-				HttpServerRequest request= ctx.request();
-				JsonArray empArray= new JsonArray();
-				
-				if(!empInfo.isEmpty()) {
-					for(String t:empInfo.keySet())
-						(empArray).add(empInfo.get(t));
-					HttpServerResponse response=request.response();
-					response.setStatusCode(200);
-					response.putHeader("content-type", "application/json").end(empArray.toString());
-					
-				}
-				else
-					sendErrorMessage(request);
-				
-			});
-		    router.get("/employee").handler(ctx->  {
-		    	
-				HttpServerRequest request= (HttpServerRequest) ctx.request();
-				String eid=request.getParam("id");
-				if(empInfo.containsKey(eid)) {
-					HttpServerResponse response=request.response();
-					response.setStatusCode(200);
-					emp=empInfo.get(eid);
-					response.putHeader("content-type", "application/json").end(emp.toString());
-					
-				}
-				else
-					sendErrorMessage(request);
-				
-			});
-		    router.post("/pemployee").handler(ctx-> {
-				// add a new employee in the database
-				// if id already present, record the changed parameters' values
-				HttpServerRequest request= (HttpServerRequest)ctx.request();
-				HttpServerResponse response=request.response();
-				response.setStatusCode(200);		
-				String eid=request.getParam("id");
-				String name=request.getParam("ename");
-				String designation=request.getParam("desig");
-				
-				if(empInfo.containsKey(eid)) {
-					emp=empInfo.get(eid);
-					emp.put("name", name);
-					emp.put("designation", designation);
-					empInfo.put(eid,emp);
-				
-				}
-				else {
-					emp=new JsonObject();
-					emp.put("id", eid);
-					emp.put("name", name);			
-					//response.write("<html><h1>Record Added </h1></html>");
-
-					emp.put("designation", designation);
-					empInfo.put(eid,emp);
-
-				}
-			
-				response.end();
-			});
+		    router.get("/api.atonarp.com/v1/employees").handler(this::sendAllEmpDetails);
+		    router.get("/api.atonarp.com/v1/employees/:id").handler(this::sendEmpDetails);
+		    router.post("/api.atonarp.com/v1/employees").handler(this::add_or_updateEmpDetails);
 		    
 		    httpServer=vertx.createHttpServer();
 		    httpServer.requestHandler(router::accept);
@@ -99,7 +36,7 @@ public class EmpREST extends AbstractVerticle {
 		//server is now listening
 	}
 	// relevant methods
-	/*private void getEmpDetails(RoutingContext ctx) {
+	private void sendEmpDetails (RoutingContext ctx) {
 	
 		HttpServerRequest request= ctx.request();
 		String eid=request.getParam("id");
@@ -114,7 +51,7 @@ public class EmpREST extends AbstractVerticle {
 			sendErrorMessage(request);
 		
 	}
-	private void getAllEmpDetails(RoutingContext ctx) {
+	private void sendAllEmpDetails(RoutingContext ctx) {
 	
 		HttpServerRequest request= (HttpServerRequest) ctx.request();
 		JsonArray empArray= new JsonArray();
@@ -146,20 +83,21 @@ public class EmpREST extends AbstractVerticle {
 			emp.put("name", name);
 			emp.put("designation", designation);
 			empInfo.put(eid,emp);
-		
+			response.headers().add("Content-Type","text/html").add("Content-Length","36");
+			response.write("<html><h1>Record Updated </h1></html>");
 		}
 		else {
 			emp=new JsonObject();
 			emp.put("id", eid);
-			emp.put("name", name);			response.write("<html><h1>Record Added </h1></html>");
-
+			emp.put("name", name);			
 			emp.put("designation", designation);
 			empInfo.put(eid,emp);
-
+			response.headers().add("Content-Type","text/html").add("Content-Length","34");
+			response.write("<html><h1>Record Added </h1></html>");
 		}
-	
+		
 		response.end();
-	}*/
+	}
 	
 	private void initEmployees() {
 		// initialize HashMap 
