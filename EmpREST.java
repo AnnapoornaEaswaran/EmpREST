@@ -1,83 +1,142 @@
 package employeerest;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.rxjava.ext.web.RoutingContext;
-import shaded.org.apache.http.HttpResponse;
-
+import io.vertx.core.http.HttpServerResponse;
+import io.vertx.core.http.HttpServerRequest;
 public class EmpREST extends AbstractVerticle {
 	HttpServer httpServer;
-	JSONObject emp,temp;
-	Map<String, JSONObject> empInfo;
+	JsonObject emp,temp;
+	Map<String, JsonObject> empInfo;
 	
 	public void start() {
-		 Router router = Router.router(vertx);
+		initEmployees();
+		
+		Router router = Router.router(vertx);
 
 		    router.route().handler(BodyHandler.create());
-		    router.get("/allemployees").handler(this::getAllEmpDetails);
-		    router.get("/employee").handler(this::getEmpDetails);
-		    router.put("/employee").handler(this::add_or_updateEmpDetails);
+		    router.get("/allemployees").handler(ctx->  {
+		    	
+				HttpServerRequest request= ctx.request();
+				JsonArray empArray= new JsonArray();
+				
+				if(!empInfo.isEmpty()) {
+					for(String t:empInfo.keySet())
+						(empArray).add(empInfo.get(t));
+					HttpServerResponse response=request.response();
+					response.setStatusCode(200);
+					response.putHeader("content-type", "application/json").end(empArray.toString());
+					
+				}
+				else
+					sendErrorMessage(request);
+				
+			});
+		    router.get("/employee").handler(ctx->  {
+		    	
+				HttpServerRequest request= (HttpServerRequest) ctx.request();
+				String eid=request.getParam("id");
+				if(empInfo.containsKey(eid)) {
+					HttpServerResponse response=request.response();
+					response.setStatusCode(200);
+					emp=empInfo.get(eid);
+					response.putHeader("content-type", "application/json").end(emp.toString());
+					
+				}
+				else
+					sendErrorMessage(request);
+				
+			});
+		    router.post("/pemployee").handler(ctx-> {
+				// add a new employee in the database
+				// if id already present, record the changed parameters' values
+				HttpServerRequest request= (HttpServerRequest)ctx.request();
+				HttpServerResponse response=request.response();
+				response.setStatusCode(200);		
+				String eid=request.getParam("id");
+				String name=request.getParam("ename");
+				String designation=request.getParam("desig");
+				
+				if(empInfo.containsKey(eid)) {
+					emp=empInfo.get(eid);
+					emp.put("name", name);
+					emp.put("designation", designation);
+					empInfo.put(eid,emp);
+				
+				}
+				else {
+					emp=new JsonObject();
+					emp.put("id", eid);
+					emp.put("name", name);			
+					//response.write("<html><h1>Record Added </h1></html>");
+
+					emp.put("designation", designation);
+					empInfo.put(eid,emp);
+
+				}
+			
+				response.end();
+			});
 		    
 		    httpServer=vertx.createHttpServer();
-		    httpServer.requestHandler(router::accept;
-		    httpServer.listen(9000);
+		    httpServer.requestHandler(router::accept);
+		    httpServer.listen(9991);
 		//start server
 		//initialize router/handler
 		//set port 
 		//server is now listening
 	}
 	// relevant methods
-	public void getEmpDetails(RoutingContext ctx) {
-		// details of a particular employee
-		HttpRequest request= ctx.request();
+	/*private void getEmpDetails(RoutingContext ctx) {
+	
+		HttpServerRequest request= ctx.request();
 		String eid=request.getParam("id");
 		if(empInfo.containsKey(eid)) {
-			HttpResponse response=request.response();
+			HttpServerResponse response=request.response();
 			response.setStatusCode(200);
-			response.getAllHeaders().add("Content-type","application/json");
 			emp=empInfo.get(eid);
-			response.write(emp);
-			response.end();
-		
+			response.putHeader("content-type", "application/json").end(emp.encodePrettily());
+			
 		}
 		else
-			sendErrorMessage();
+			sendErrorMessage(request);
 		
 	}
-	public void getAllEmpDetails(RoutingContext ctx) {
-		// details of all employees
-		HttpRequest request= ctx.request();
-		JsonArray empArray= new JSONArray();
+	private void getAllEmpDetails(RoutingContext ctx) {
+	
+		HttpServerRequest request= (HttpServerRequest) ctx.request();
+		JsonArray empArray= new JsonArray();
 		
 		if(!empInfo.isEmpty()) {
 			for(String t:empInfo.keySet())
-				empArray.add(empInfo.get(t));
-			HttpResponse response=request.response();
+				(empArray).add(empInfo.get(t));
+			HttpServerResponse response=request.response();
 			response.setStatusCode(200);
-			response.getAllHeaders().add("Content-type","application/json");
-			response.write(empArray);
-			response.end();
-		
+			response.putHeader("content-type", "application/json").end(empArray.encodePrettily());
+			
 		}
 		else
-			sendErrorMessage();
+			sendErrorMessage(request);
 		
 	}
-	public void add_or_updateEmpDetails(RoutingContext ctx) {
+	private void add_or_updateEmpDetails(RoutingContext ctx) {
 		// add a new employee in the database
 		// if id already present, record the changed parameters' values
-		HttpRequest request= ctx.request();
-		HttpResponse response=request.response();
-		response.setStatusCode(200);
-		response.getAllHeaders().add("Content-type","text/html").add("Content-length","60");
-		
+		HttpServerRequest request= (HttpServerRequest)ctx.request();
+		HttpServerResponse response=request.response();
+		response.setStatusCode(200);		
 		String eid=request.getParam("id");
 		String name=request.getParam("ename");
 		String designation=request.getParam("desig");
@@ -87,22 +146,22 @@ public class EmpREST extends AbstractVerticle {
 			emp.put("name", name);
 			emp.put("designation", designation);
 			empInfo.put(eid,emp);
-			response.write("<html><h1>Record Updated </h1></html>");
 		
 		}
 		else {
-			emp=new JSONObject();
+			emp=new JsonObject();
 			emp.put("id", eid);
-			emp.put("name", name);
+			emp.put("name", name);			response.write("<html><h1>Record Added </h1></html>");
+
 			emp.put("designation", designation);
 			empInfo.put(eid,emp);
-			response.write("<html><h1>Record Added </h1></html>");
 
 		}
-		response.end();
 	
-	}
-	public void initEmployees() {
+		response.end();
+	}*/
+	
+	private void initEmployees() {
 		// initialize HashMap 
 		empInfo=new HashMap<>();
 		empInfo.put("e1", employee("e1","ABC","Clerk"));
@@ -112,20 +171,17 @@ public class EmpREST extends AbstractVerticle {
 		empInfo.put("e5", employee("e5","ADA","MTS"));
 		
 	}
-	public JSONObject employee(String id, String name, String desig) {
-		JSONObject e=new JSONObject();
+	public JsonObject employee(String id, String name, String desig) {
+		JsonObject e=new JsonObject();
 		e.put("id", id);
 		e.put("name", name);
 		e.put("designation", desig);
 		return e;
 	}
-	public void sendErrorMessage(HttpRequest request) {
-		HttpResponse response=request.response();
-		response.setStatusCode(404);
-		response.add("Content-Length","60")
-	    .add("Content-Type", "text/html");
-		response.write("<html><h1>Sorry No such id found! </h1></html>");
-		response.end();
+	public void sendErrorMessage(HttpServerRequest request) {
+		HttpServerResponse response=request.response();
+		response.setStatusCode(404).end();
+		
 	}
 	public void stop() {
 		httpServer.close();
